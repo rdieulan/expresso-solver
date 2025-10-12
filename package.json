@@ -1,20 +1,23 @@
 {
-  "name": "expresso-decision-cli",
+  "name": "preflop-cli",
   "version": "0.1.0",
-  "type": "commonjs",
+  "private": true,
+  "description": "CLI de décision preflop",
+  "main": "dist/index.js",
   "bin": {
-    "expresso-decide": "dist/cli.js"
+    "preflop": "dist/cli.js"
   },
   "scripts": {
-    "build": "tsc",
-    "start": "ts-node src/cli.ts",
-    "test": "npm run build && node dist/cli.js --players 2 --depth 10 --position SB --hand AhKs"
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/cli.js",
+    "test": "node dist/cli.js --players 3 --depth 10 --position BTN --hand AKs",
+    "dev": "ts-node src/cli.ts"
   },
   "dependencies": {
     "yargs": "^17.7.2"
   },
   "devDependencies": {
-    "@types/node": "^20.11.30",
+    "@types/node": "^20.12.12",
     "@types/yargs": "^17.0.32",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.3"
