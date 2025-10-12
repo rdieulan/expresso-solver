@@ -1,0 +1,22 @@
+{
+  "name": "expresso-decision-cli",
+  "version": "0.1.0",
+  "type": "commonjs",
+  "bin": {
+    "expresso-decide": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "ts-node src/cli.ts",
+    "test": "npm run build && node dist/cli.js --players 2 --depth 10 --position SB --hand AhKs"
+  },
+  "dependencies": {
+    "yargs": "^17.7.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@types/yargs": "^17.0.32",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3"
+  }
+}
