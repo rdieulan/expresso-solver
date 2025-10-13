@@ -5,10 +5,11 @@ import {
   DecisionAction,
   RangesFile as _RangesFile,
   PositionNode,
+  DecisionValue,
 } from "./types";
 import { PlayersCount, Position, Scenario } from "../domain";
 
-export { DecisionAction };
+export { DecisionAction, DecisionValue };
 
 export class RangeRepository {
   private constructor(private readonly data: RangesFile) {}
@@ -30,6 +31,13 @@ export class RangeRepository {
     return new RangeRepository(json as RangesFile);
   }
 
+  // Create repository from an in-memory object (used for upload)
+  static fromObject(obj: unknown): RangeRepository {
+    // validate
+    validateRangesFile(obj, "<uploaded>");
+    return new RangeRepository(obj as RangesFile);
+  }
+
   find(params: {
     players: PlayersCount;
     depth: number;
@@ -37,7 +45,7 @@ export class RangeRepository {
     scenario: Scenario;
     handLabel: string;
     villainPos?: Position;
-  }): DecisionAction | undefined {
+  }): DecisionValue | undefined {
     const { players, depth, heroPos, scenario, handLabel, villainPos } = params;
 
     const pNode = (this.data as any)?.[String(players)];

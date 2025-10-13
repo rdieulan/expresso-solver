@@ -1,0 +1,79 @@
+{
+  "2": {
+    "10": {
+      "SB": {
+        "FirstIn": {
+          "AA": "shove",
+          "AKS": "raise",
+          "A2O": "fold"
+        },
+        "VsOpen": {
+          "BB": {
+            "AKS": "shove",
+            "A5S": "call"
+          }
+        },
+        "VsShove": {
+          "BB": {
+            "QQ": "call",
+            "AQS": "call",
+            "A2O": "fold"
+          }
+        }
+      },
+      "BB": {
+        "FirstIn": {
+          "AA": "raise",
+          "AKS": "raise"
+        },
+        "VsOpen": {
+          "SB": {
+            "AKS": "shove"
+          }
+        },
+        "VsShove": {
+          "SB": {
+            "QQ": "call"
+          }
+        }
+      }
+    }
+  },
+  "3": {
+    "10": {
+      "BTN": {
+        "FirstIn": {
+          "AKS": "raise",
+          "A2O": "fold"
+        },
+        "VsOpen": {
+          "SB": {
+            "AKS": "shove"
+          },
+          "BB": {
+            "AKS": "shove"
+          }
+        },
+        "VsShove": {
+          "SB": {
+            "QQ": "call"
+          },
+          "BB": {
+            "QQ": "call"
+          }
+        }
+      },
+      "SB": {
+        "FirstIn": {
+          "AKS": "raise"
+        }
+      },
+      "BB": {
+        "FirstIn": {
+          "AKS": "raise"
+        }
+      }
+    }
+  }
+}
+

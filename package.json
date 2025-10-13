@@ -12,15 +12,21 @@
     "start": "node dist/cli.js",
     "test": "node dist/cli.js --players 3 --depth 10 --position BTN --hand AKs",
     "dev": "ts-node src/cli.ts",
-    "test:unit": "ts-node src/tests/normalize.test.ts && ts-node src/tests/range.test.ts && ts-node src/tests/decision.test.ts"
+    "test:unit": "ts-node src/tests/normalize.test.ts && ts-node src/tests/range.test.ts && ts-node src/tests/decision.test.ts",
+    "start:web": "node dist/server.js",
+    "dev:web": "ts-node src/server.ts"
   },
   "dependencies": {
-    "yargs": "^17.7.2"
+    "yargs": "^17.7.2",
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
   },
   "devDependencies": {
     "@types/node": "^20.12.12",
     "@types/yargs": "^17.0.32",
     "ts-node": "^10.9.2",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.13"
   }
 }
