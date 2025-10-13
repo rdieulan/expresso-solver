@@ -1,68 +1,76 @@
 # Agent.md
 
-Résumé \- objectif
-- Outil CLI pour recommander des décisions préflop en heads\-up \(`2`\) ou 3\-max \(`3`\) selon la profondeur \(\~bb\), la position \(`BTN|SB|BB`\), le scénario \(`FirstIn|VsOpen|VsShove`\) et la main du héros. Les décisions sont lues depuis un fichier de ranges JSON, avec sélection de la profondeur la plus proche.
+But général
+- Outil CLI (TypeScript / Node) pour recommander des décisions PRÉFLOP pour le format Expresso Nitro (Spin & Go courts), en configuration 2-max (heads-up) et 3-max.
+- L'objectif : fournir, pour une main donnée et une profondeur (en big blinds), la décision à prendre dans tous les scénarios pré-flop pertinents (FirstIn, VsOpen, VsShove) en se basant sur des tableaux de ranges JSON.
 
-Contexte et portée
-- Cible: formats Expresso/Spin & Go courts tapis.
-- Portée: préflop uniquement, 2 ou 3 joueurs, scénarios définis.
-- Hors portée: postflop, ICM avancé, parsing de mains complexes, import de HH.
+Résumé - objectif
+- CLI qui prend en entrée : nombre de joueurs (2|3), profondeur (5..15), position du héros (BTN|SB|BB), main du héros (formats permissifs : AhKs, AKs, AK, a k s, etc.).
+- Pour chaque scénario préflop (FirstIn, VsOpen, VsShove) et pour chaque vilain possible (positions autres que la position du héros), l'outil affiche l'action recommandée (fold|call|raise|shove) selon les ranges.
+- Si aucune donnée n'existe pour un cas, on applique un fallback conservateur : FirstIn -> fold, VsOpen -> fold, VsShove -> call.
 
-Fonctionnement à haut niveau
-- Le CLI parse les options, normalise la main, charge `data/preflop.ranges.json`, récupère l’action \(`fold|call|raise|shove`\) via `RangeRepository.find(...)`, applique un repli conservateur si absence de range, puis affiche les résultats pour `FirstIn` et pour chaque vilain en `VsOpen` et `VsShove`.
+État actuel du projet (à la date de la dernière modification)
+- CLI fonctionnel : `src/cli.ts` parse les options et affiche les décisions pour FirstIn, VsOpen et VsShove pour chaque vilain.
+- Normalisation des mains robuste : `src/domain.ts` contient `normalizeHandLabel` qui accepte plusieurs formats (ex: AhKs, AKs, AK, a k s) et retourne des labels standards (ex: AA, AKS, A2O).
+- Chargement des ranges depuis `data/preflop.ranges.json` via `src/ranges/RangeRepository.ts` (méthode `fromFile` et `find`).
+- `src/DecisionEngine.ts` encapsule la logique de décision (normalisation + lookup + fallback).
+- Tests rapides en place (scripts via `ts-node`) :
+  - `src/tests/normalize.test.ts` (normalisation)
+  - `src/tests/range.test.ts` (RangeRepository)
+  - `src/tests/decision.test.ts` (DecisionEngine)
+  - Script npm `test:unit` pour exécuter tous ces tests séquentiellement.
 
-Entrées / sorties
-- Entrées CLI: `--players <2|3> --depth <5..15> --position <BTN|SB|BB> --hand <ex: AKs>`.
-- Sortie: lignes `[Scenario [vs Position]] HAND -> ACTION`.
-- Normalisation mains: majuscules sans espaces \(`AKs` -> `AKS`, `A2o` -> `A2O`\).
+Conventions et format des données
+- `data/preflop.ranges.json` : racine par nombre de joueurs ("2", "3").
+- Sous chaque nombre de joueurs : clés de profondeur (ex: "10"). Si la profondeur demandée n'existe pas, on utilise la clé numérique la plus proche.
+- Nœud par position du héros (BTN|SB|BB).
+- Scénarios :
+  - `FirstIn`: map handLabel -> action
+  - `VsOpen` / `VsShove`: map villainPos -> (handLabel -> action)
+- Labels de mains : paires -> "AA", suited -> "AKS", offsuit -> "AKO" (note : offsuit est marqué "O"), dix = "T" dans les labels (ex: TT).
+- Actions autorisées : "fold", "call", "raise", "shove".
 
-Données \- schéma attendu `data/preflop.ranges.json`
-- Racine par nombre de joueurs: clés `"2"`, `"3"`.
-- Niveaux de profondeur: clés numériques en chaîne \(`"5"`, `"10"`, ...\). Si profondeur exacte absente, sélection de la plus proche.
-- Nœud de position du héros: `BTN|SB|BB` selon `players`.
-- Scénarios:
-    - `FirstIn` -> `handLabel` -> `action`.
-    - `VsOpen`/`VsShove` -> `villainPos` -> `handLabel` -> `action`.
-- `handLabel`: valeurs normalisées \(`AA`, `AKS`, `A2O`, etc.\).
-- `action`: une de `fold|call|raise|shove`.
+Comment reprendre le travail (quick start)
+- Installer dépendances : `npm install`.
+- Développement rapide (exécuter le CLI en TS) : `npm run dev` puis fournir les flags.
+- Build : `npm run build`.
+- Lancer le binaire buildé : `npm start` ou `npm run test` (script test courant exécute le CLI pour un cas précis).
+- Tests unitaires rapides (TypeScript via ts-node) : `npm run test:unit`.
 
-Règles de décision implémentées
-- Positions autorisées: `2` -> `SB,BB`; `3` -> `BTN,SB,BB`.
-- Profondeur clampée \[5..15\] côté CLI, choix de la profondeur la plus proche dans les données.
-- Fallback si absence de range:
-    - `FirstIn`: `fold`
-    - `VsOpen`: `fold`
-    - `VsShove`: `call`
+Fichiers importants
+- `src/cli.ts` : point d'entrée CLI.
+- `src/domain.ts` : définitions types, parsing/normalisation.
+- `src/ranges/RangeRepository.ts` : lecture et recherche des ranges.
+- `src/DecisionEngine.ts` : logique de décision et fallback.
+- `data/preflop.ranges.json` : données de ranges actuelles (exemples).
+- `package.json` : scripts utiles (`build`, `dev`, `test`, `test:unit`).
 
-Architecture \- fichiers clés
-- `src/cli.ts`: interface CLI, collecte des décisions pour `FirstIn`, `VsOpen`, `VsShove`, affichage.
-- `src/domain.ts`: types \(`PlayersCount`, `Position`, `Scenario`\), parsing/validation, utilitaires \(`normalizeHandLabel`\).
-- `src/ranges/RangeRepository.ts`: chargement JSON, résolution d’action via arbre \+ profondeur la plus proche.
-- `src/DecisionEngine.ts`: normalisation de la main, interrogation du repo, logique de repli.
-- `package.json`: `bin` -> `dist/cli.js`, scripts `build/start/dev/test`.
-- `.gitignore`: Node/TS, IDE \(`.idea`\), caches, logs.
+Assomptions actuelles
+- On travaille avec CommonJS (tsconfig module: CommonJS) pour éviter des problèmes d'import/ESM sur Node.
+- Villain positions ne sont pas fournies via CLI : l'outil itère automatiquement sur toutes les positions adverses possibles (celles != hero).
+- Input main : si suit/format ambigu, on considère offsuit par défaut (comportement conservateur).
 
-Utilisation
-- Installer deps: `npm i`
-- Dev: `npm run dev`
-- Build: `npm run build`
-- Lancer: `npm start`
-- Test rapide: `npm run test`
-- Global \(Windows\): `npm link`, puis `preflop --players 3 --depth 10 --position BTN --hand AKs`
+Prochaines étapes recommandées (priorisées)
+1. Ajouter validation et typage du schéma JSON des ranges (erreurs claires en cas de format invalide).
+2. Implémenter une page simple d'UI (web) ou TUI pour affichage plus ergonomique.
+3. Élargir la couverture des ranges et documenter la convention des labels (valeurs, suited/offsuit/paires).
+4. Ajouter des tests unitaires plus robustes (closestDepthKey, parsing, cas limites) et mettre en place CI (build + tests).
+5. Supporter des tailles de profondeur hors de [5..15] si nécessaire et ajouter interpolation si besoin.
 
-Qualité \- limitations actuelles
-- Pas de validation robuste du schéma JSON.
-- Couverture de ranges minimale d’exemple.
-- Pas encore de tests unitaires.
+Notes pour la reprise future
+- Pour retrouver rapidement l'état, lancer :
+  - `npm run build` puis `npm start` pour tester le CLI compilé.
+  - `npm run test:unit` pour exécuter la batterie de tests locales.
+- Les points d'intérêt à vérifier après réinitialisation du contexte :
+  - `normalizeHandLabel` (surtout formats rares),
+  - `RangeRepository.closestDepthKey` (choix de la profondeur la plus proche),
+  - `DecisionEngine.fallback` (valeurs par défaut),
+  - `tsconfig.json` (module CommonJS si problème d'imports).
 
-Feuille de route \- prochaines étapes
-- Valider/typer le schéma des ranges et reporter des erreurs claires.
-- Étendre les ranges et documenter la convention des labels \(`s/o/paires`\).
-- Tests unitaires: `closestDepthKey`, `find`, parsing \& scénarios.
-- Améliorer les messages d’erreur et les codes de sortie.
-- CI basique \(`build` \+ tests\).
+Contact / historique rapide des actions réalisées
+- Implémentation initiale CLI, Domain, RangeRepository, DecisionEngine.
+- Ajout d'un parser de main robuste et de tests unitaires pour normalisation, repository et moteur de décision.
 
-Références rapides
-- Repo: `origin https://github.com/rdieulan/expresso-solver.git`
-- Projet: `preflop-cli` \(Node/TypeScript, `yargs`\)
-- Environnement: Windows, PhpStorm 2024\.1\.7
+---
+
+Fin de l'Agent.md — conserve ce fichier en tête de repo; il contient tout le nécessaire pour reprendre le projet même si le contexte de l'IA est réinitialisé.

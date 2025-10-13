@@ -11,7 +11,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/cli.js",
     "test": "node dist/cli.js --players 3 --depth 10 --position BTN --hand AKs",
-    "dev": "ts-node src/cli.ts"
+    "dev": "ts-node src/cli.ts",
+    "test:unit": "ts-node src/tests/normalize.test.ts && ts-node src/tests/range.test.ts && ts-node src/tests/decision.test.ts"
   },
   "dependencies": {
     "yargs": "^17.7.2"
