@@ -66,9 +66,8 @@ export class DecisionEngine {
             // Try action name
             const a = this.asAction(s);
             if (a) {
-                const probs: Record<DecisionAction, number> = { fold: 0, call: 0, raise: 0, shove: 0 };
-                probs[a] = 1;
-                return { action: a, probs };
+                // Deterministic action stored as plain string -> return only the action (no probs)
+                return { action: a, probs: undefined };
             }
 
             // Otherwise try to parse as JSON representation of a weights object

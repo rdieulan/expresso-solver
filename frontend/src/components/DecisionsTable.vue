@@ -24,10 +24,10 @@
 
                   <div v-else-if="cellFor(hero, col).type === 'prob'" class="prob-cell rounded position-relative">
                     <div class="prob-bar d-flex rounded" v-if="cellFor(hero,col).segments && cellFor(hero,col).segments.length > 0">
-                      <div v-for="(s, idx) in cellFor(hero,col).segments" :key="idx" class="prob-seg" :style="{ width: s.width + '%', background: s.color }"></div>
+                      <div v-for="(s, idx) in cellFor(hero,col).segments" :key="idx" class="prob-seg" :style="{ width: s.width + '%', background: (s.color || colorFor(s.action)) }"></div>
                     </div>
-                    <div v-else class="det-cell" :style="{ background: colorFor(cellFor(hero,col).chosen) }">
-                      <span class="text-dark fw-bold">{{ cellFor(hero,col).chosen }}</span>
+                    <div v-else class="det-cell rounded" :style="{ background: colorFor(cellFor(hero,col).chosen) }">
+                      <span :class="(cellFor(hero,col).chosen === 'RAISE' ? 'text-dark fw-bold' : 'text-white fw-bold')">{{ cellFor(hero,col).chosen }}</span>
                     </div>
                     <div class="prob-overlay">{{ cellFor(hero,col).chosen }}</div>
                   </div>
@@ -124,30 +124,59 @@ export default defineComponent({
             // try explicit .probs or .probabilities
             const probsObj = (cell.probs || cell.probabilities)
             if (probsObj && typeof probsObj === 'object' && Object.keys(probsObj).length > 0) {
-              const segments = buildSegments(probsObj)
-              // If backend provides an explicit action in addition to probs, prefer showing it as chosen
+              // Normalize numeric map
+              const normMap: Record<string, number> = {}
+              let total = 0
+              for (const k of Object.keys(probsObj)) {
+                const v = Number((probsObj as any)[k]) || 0
+                normMap[k.toLowerCase()] = v
+                total += v
+              }
+              // detect degenerate distribution: exactly one non-zero weight -> treat as deterministic
+              const nonZeroKeys = Object.keys(normMap).filter(k => normMap[k] > 0)
               const providedAction = (cell.action ? String(cell.action).toUpperCase() : undefined)
+              if (nonZeroKeys.length === 1) {
+                // pick that action as deterministic
+                cache[hero][col] = { type: 'det', action: nonZeroKeys[0].toUpperCase() }
+                continue
+              }
+              // otherwise build visual segments; if total <=0 fallback to provided action
+              const segments = buildSegments(probsObj)
+              if ((!segments || segments.length === 0)) {
+                const fbAction = providedAction || ''
+                if (fbAction) segments.push({ width: 100, color: colorFor(fbAction), action: fbAction })
+              }
               const chosen = providedAction || sampleChoice(probsObj) || ''
               cache[hero][col] = { type: 'prob', segments, chosen }
-              continue
-            }
+               continue
+             }
 
-            // try treat the object itself as probs if it contains known keys
-            const keys = Object.keys(cell || {})
-            const hasProbKeys = keys.some(k => probKeys.includes(k.toLowerCase()))
-            if (hasProbKeys) {
-              // build a normalized probs map
-              const map: Record<string, number> = {}
-              for (const k of keys) {
-                const v = Number((cell as any)[k])
-                if (!isNaN(v)) map[k.toLowerCase()] = v
-              }
-              const segments = buildSegments(map)
-              const providedAction = (cell.action ? String(cell.action).toUpperCase() : undefined)
-              const chosen = providedAction || sampleChoice(map) || ''
-              cache[hero][col] = { type: 'prob', segments, chosen }
-              continue
-            }
+             // try treat the object itself as probs if it contains known keys
+             const keys = Object.keys(cell || {})
+             const hasProbKeys = keys.some(k => probKeys.includes(k.toLowerCase()))
+             if (hasProbKeys) {
+               // build a normalized probs map
+               const map: Record<string, number> = {}
+               for (const k of keys) {
+                 const v = Number((cell as any)[k])
+                 if (!isNaN(v)) map[k.toLowerCase()] = v
+               }
+               // detect degenerate distribution
+               const nz = Object.keys(map).filter(k => map[k] > 0)
+               const provided = (cell.action ? String(cell.action).toUpperCase() : undefined)
+               if (nz.length === 1) {
+                 cache[hero][col] = { type: 'det', action: nz[0].toUpperCase() }
+                 continue
+               }
+               const segments = buildSegments(map)
+               if ((!segments || segments.length === 0)) {
+                 const fbAction = provided || ''
+                 if (fbAction) segments.push({ width: 100, color: colorFor(fbAction), action: fbAction })
+               }
+               const chosen2 = provided || sampleChoice(map) || ''
+               cache[hero][col] = { type: 'prob', segments, chosen: chosen2 }
+               continue
+             }
           }
 
           // Case: object with explicit action (no probs)
@@ -174,25 +203,34 @@ export default defineComponent({
 </script>
 
 <style scoped>
-.decisions-table { table-layout: fixed; width: 100%; }
+.decisions-table { table-layout: fixed; width: 100%; --cell-height: 44px; }
 .decisions-table td, .decisions-table th { padding: 4px; }
 
 /* Inner block fills the TD (compensate padding on TD) */
 .na-cell, .det-cell, .prob-cell {
-  display: block;
-  width: calc(100% - 8px); /* account for td padding */
-  box-sizing: border-box;
-  min-height: 36px;
-  padding: 6px;
-  border-radius: 6px;
-  overflow: hidden;
-}
+   /* common box properties */
+   width: 100%;
+   box-sizing: border-box;
+   height: var(--cell-height);
+   border-radius: 6px;
+   overflow: hidden;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+ }
 
-.na-cell { font-size: 12px; text-align:center; background:#1f1f1f; color:#fff; }
-.det-cell { color: inherit; }
-.det-cell > span { display: block; width:100%; text-align:center }
-.prob-cell { position: relative; }
-.prob-bar { height:100%; width:100%; display:flex; overflow:hidden; border-radius:6px }
-.prob-seg { height:100%; flex: none; min-width: 0 }
-.prob-overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#000; font-weight:700; pointer-events:none }
+ /* keep NA and DET as centered blocks */
+ .na-cell { font-size: 12px; text-align:center; background:#1f1f1f; color:#fff; }
+ .det-cell { color: inherit; }
+ .det-cell > span { display: block; width:100%; text-align:center }
+
+ /* make prob-cell a flex container so its child .prob-bar can stretch to available space */
+ .prob-cell {
+   position: relative;
+ }
+
+ /* make the bar flexible and allow it to take the full height of the prob-cell (removed -8px) */
+ .prob-bar { flex: 1 1 auto; width: 100%; display:flex; overflow:hidden; border-radius:6px; position:relative; z-index:1; height: var(--cell-height); margin: 4px 0; }
+ .prob-seg { height:100%; flex: 0 0 auto; min-width: 1px; box-sizing:border-box }
+ .prob-overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#000; font-weight:700; pointer-events:none; z-index:2; background: transparent }
 </style>
