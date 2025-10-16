@@ -1,0 +1,9 @@
+{
+  "extends": "../tsconfig.frontend.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*.ts", "src/**/*.vue", "src/**/*.d.ts"]
+}
+

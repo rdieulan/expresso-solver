@@ -12,7 +12,24 @@ async function main() {
   app.use(express.json({ limit: '2mb' }));
 
   const publicPath = path.resolve(__dirname, "..", "public");
-  app.use(express.static(publicPath));
+  const distFrontendPath = path.resolve(__dirname, "..", "dist-frontend");
+
+  // If a built frontend exists in dist-frontend, prefer serving it; otherwise fall back to public/
+  let serveFrontend = false;
+  try {
+    await fs.access(distFrontendPath);
+    serveFrontend = true;
+  } catch (e) {
+    serveFrontend = false;
+  }
+
+  if (serveFrontend) {
+    app.use(express.static(distFrontendPath));
+    console.log(`Serving frontend from ${distFrontendPath}`);
+  } else {
+    app.use(express.static(publicPath));
+    console.log(`Serving static files from ${publicPath}`);
+  }
 
   const profilesDir = path.resolve(__dirname, "..", "data", "profiles");
 
@@ -163,11 +180,24 @@ async function main() {
     }
   });
 
+  // SPA fallback: serve index.html for non-api GET requests
+  app.get('*', async (req, res) => {
+    try {
+      if (req.path.startsWith('/api')) return res.status(404).end();
+      const indexPath = serveFrontend ? path.join(distFrontendPath, 'index.html') : path.join(publicPath, 'index.html');
+      const html = await fs.readFile(indexPath, 'utf8');
+      res.setHeader('Content-Type', 'text/html');
+      res.send(html);
+    } catch (e) {
+      res.status(404).send('Not found');
+    }
+  });
+
   const port = process.env.PORT ? Number(process.env.PORT) : 3000;
 
   // Start server and handle common errors (like port already in use)
   const server = app.listen(port, () => {
-    console.log(`Server started at http://localhost:${port} — static from ${publicPath}`);
+    console.log(`Server started at http://localhost:${port} — static from ${serveFrontend ? distFrontendPath : publicPath}`);
     console.log(`Process PID: ${process.pid}`);
     console.log(`Active profile: ${currentProfile}`);
   });

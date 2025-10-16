@@ -1,90 +1,47 @@
-expresso-solver — Assistant de décision préflop (Expresso Nitro)
+# Expresso Solver — Monorepo
 
-But
-----
-Outil CLI pour recommander des décisions PRÉFLOP (FirstIn, VsOpen, VsShove) en formats Expresso Nitro (2-max / 3-max).
+But: garder le projet simple pour le développement local (pas de focus production pour l'instant).
 
-Ressources clés
----------------
-- Code: `src/` (TypeScript)
-- Ranges example: `data/preflop.ranges.json`
-- CLI binaire (build): `dist/cli.js`
-- Fichier de configuration TS: `tsconfig.json`
-- Documentation d'agent/état: `Agent.md`
+Structure
+- frontend/ — UI (Vite + Vue 3)
+- backend/ — API + CLI (TypeScript)
 
-Usage rapide
------------
-(Windows `cmd.exe`)
+Commandes utiles (depuis la racine)
 
-- Installer les dépendances :
+1) Installer les dépendances pour le monorepo :
 
-```bash
+```cmd
 npm install
 ```
 
-- Exécuter en développement (ts-node) :
+2) Lancer le mode développement (démarre backend + frontend en parallèle) :
 
-```bash
-npm run dev -- --players 3 --depth 10 --position BTN --hand AKs
+```cmd
+npm run dev
 ```
 
-- Construire :
+(si vous préférez lancer les serveurs séparément, ouvrez deux terminaux dans la racine :) )
 
-```bash
-npm run build
+Frontend seul :
+```cmd
+npm --prefix frontend run dev
 ```
 
-- Lancer le binaire compilé (exemple) :
-
-```bash
-npm run test
+Backend seul :
+```cmd
+npm --prefix backend run dev
 ```
 
-- Sortie JSON lisible par machine :
+3) Lancer les tests unitaires backend :
 
-```bash
-node dist/cli.js --players 3 --depth 10 --position BTN --hand AKs --format json
+```cmd
+npm --prefix backend run test:unit
 ```
 
-Scripts utiles
---------------
-- `npm run build` : compile TypeScript
-- `npm run start` : exécute `dist/cli.js`
-- `npm run test` : lance un exemple de CLI compilé
-- `npm run dev` : exécute le CLI en TS via `ts-node`
-- `npm run test:unit` : exécute les tests unitaires locaux (normalize, ranges, decision)
+Raisonnement
+- Projet organisé en workspaces pour séparer les dépendances et scripts par sous-projet.
+- `npm run dev` racine utilise `npm-run-all` (installé en devDependencies racine) pour démarrer frontend et backend en parallèle.
+- J'ai supprimé/consulté les scripts superflus et déplacé ce qui concernait la prod dans les sous-projets. L'approche privilégie le flux dev rapide.
 
-Structure des données
----------------------
-Fichier `data/preflop.ranges.json` :
-- Racine par nombre de joueurs: keys "2", "3".
-- Sous chaque nombre: clés de profondeur (`"10"`), puis position du héros (`BTN|SB|BB`).
-- Scénarios:
-  - `FirstIn`: map `handLabel -> action`
-  - `VsOpen` / `VsShove`: map `villainPos -> (handLabel -> action)`
-- Labels de mains: `AA`, `AKS`, `AKO`, `A2O`, etc.
-- Actions: `fold|call|raise|shove`.
-
-Tests
------
-- `npm run test:unit` exécute trois petits tests via `ts-node`:
-  - `src/tests/normalize.test.ts` : normalisation des labels de mains
-  - `src/tests/range.test.ts` : lecture et recherche de ranges
-  - `src/tests/decision.test.ts` : intégration `DecisionEngine`
-
-Notes pour développeur
----------------------
-- Le module TS est compilé en CommonJS (tsconfig.json) pour éviter des problèmes d'import ESM sur Node.
-- Les entrées de main acceptées sont tolérantes (ex: `AhKs`, `AKs`, `AK`, `a k s`), converties en labels normalisés.
-- `Agent.md` contient les informations nécessaires pour reprendre le travail si le contexte est réinitialisé.
-
-Prochaines améliorations suggérées
----------------------------------
-- Validation / typing plus stricte du schéma JSON (actuellement une validation légère est appliquée).
-- Ajouter plus de ranges et une documentation formelle des conventions de labels.
-- Ajouter une UI minimale (TUI / Web) et un pipeline CI pour build+tests.
-
-Licence
--------
-Projet privé pour usage personnel (modifier selon besoin).
+Si vous voulez encore plus simple : je peux remplacer le script `dev` racine par une note dans le README conseillant d'ouvrir deux terminaux et lancer les commandes `npm --prefix frontend run dev` et `npm --prefix backend run dev` séparément (supprime la dépendance `npm-run-all`). Dites-moi si vous préférez ça.
 

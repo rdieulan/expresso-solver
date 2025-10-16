@@ -1,32 +1,18 @@
 {
-  "name": "preflop-cli",
+  "name": "expresso-solver",
   "version": "0.1.0",
   "private": true,
-  "description": "CLI de décision preflop",
-  "main": "dist/index.js",
-  "bin": {
-    "preflop": "dist/cli.js"
-  },
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "description": "Monorepo: frontend + backend for Expresso Solver",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "start": "node dist/cli.js",
-    "test": "node dist/cli.js --players 3 --depth 10 --position BTN --hand AKs",
-    "dev": "ts-node src/cli.ts",
-    "test:unit": "ts-node src/tests/normalize.test.ts && ts-node src/tests/range.test.ts && ts-node src/tests/decision.test.ts",
-    "start:web": "node dist/server.js",
-    "dev:web": "ts-node src/server.ts"
-  },
-  "dependencies": {
-    "yargs": "^17.7.2",
-    "express": "^4.18.2",
-    "cors": "^2.8.5"
-  },
-  "devDependencies": {
-    "@types/node": "^20.12.12",
-    "@types/yargs": "^17.0.32",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.6.3",
-    "@types/express": "^4.17.21",
-    "@types/cors": "^2.8.13"
+    "build": "npm run build:backend && npm run build:frontend",
+    "build:backend": "npm --prefix backend run build",
+    "build:frontend": "npm --prefix frontend run build",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "test": "npm --prefix backend run test:unit"
   }
 }
