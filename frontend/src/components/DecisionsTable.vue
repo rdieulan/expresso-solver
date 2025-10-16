@@ -22,14 +22,22 @@
                     <span :class="textClassFor(cellFor(hero,col).action)">{{ cellFor(hero,col).action }}</span>
                   </div>
 
-                  <div v-else-if="cellFor(hero, col).type === 'prob'" class="prob-cell rounded position-relative">
-                    <div class="prob-bar d-flex rounded" v-if="cellFor(hero,col).segments && cellFor(hero,col).segments.length > 0">
-                      <div v-for="(s, idx) in cellFor(hero,col).segments" :key="idx" class="prob-seg" :style="{ width: s.width + '%', background: (s.color || colorFor(s.action)) }"></div>
+                  <!-- Probabilistic cell: full-bg = chosen color + bottom strip with segments -->
+                  <div v-else-if="cellFor(hero, col).type === 'prob'"
+                       class="prob-cell rounded position-relative"
+                       :style="{ background: colorFor(cellFor(hero,col).chosen) }"
+                       :title="cellFor(hero,col).chosen || ''">
+
+                    <!-- centered overlay text, use same textClass logic as det cells -->
+                    <div class="prob-overlay" :class="textClassFor(cellFor(hero,col).chosen)">{{ cellFor(hero,col).chosen }}</div>
+
+                    <!-- bottom strip showing segments proportions -->
+                    <div v-if="cellFor(hero,col).segments && cellFor(hero,col).segments.length > 0" class="prob-strip rounded-bottom">
+                      <div v-for="(s, idx) in cellFor(hero,col).segments" :key="idx" class="prob-seg"
+                           :style="{ width: s.width + '%', background: (s.color || colorFor(s.action)) }"
+                           :title="(s.action + ' ' + (Math.round(s.width*10)/10) + '%')"></div>
                     </div>
-                    <div v-else class="det-cell rounded" :style="{ background: colorFor(cellFor(hero,col).chosen) }">
-                      <span :class="(cellFor(hero,col).chosen === 'RAISE' ? 'text-dark fw-bold' : 'text-white fw-bold')">{{ cellFor(hero,col).chosen }}</span>
-                    </div>
-                    <div class="prob-overlay">{{ cellFor(hero,col).chosen }}</div>
+
                   </div>
 
                 </td>
@@ -43,7 +51,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, computed } from 'vue'
+import { defineComponent, computed, watch } from 'vue'
 
 export default defineComponent({
   name: 'DecisionsTable',
@@ -103,6 +111,12 @@ export default defineComponent({
       return segs
     }
 
+    // chosenCache permet de stabiliser le choix tiré au hasard tant que la matrice reste la même
+    const chosenCache = new Map<string,string>()
+    watch(() => props.decisionsMatrix, () => {
+      chosenCache.clear()
+    }, { deep: true })
+
     const cellCache = computed(() => {
       const cache: Record<string, Record<string, any>> = {}
       const probKeys = ['raise','shove','call','fold']
@@ -136,17 +150,23 @@ export default defineComponent({
               const nonZeroKeys = Object.keys(normMap).filter(k => normMap[k] > 0)
               const providedAction = (cell.action ? String(cell.action).toUpperCase() : undefined)
               if (nonZeroKeys.length === 1) {
-                // pick that action as deterministic
                 cache[hero][col] = { type: 'det', action: nonZeroKeys[0].toUpperCase() }
                 continue
               }
-              // otherwise build visual segments; if total <=0 fallback to provided action
+
+              // build segments as before
               const segments = buildSegments(probsObj)
-              if ((!segments || segments.length === 0)) {
-                const fbAction = providedAction || ''
-                if (fbAction) segments.push({ width: 100, color: colorFor(fbAction), action: fbAction })
+
+              // stable chosen: use chosenCache keyed by hero|col|probsJSON|providedAction
+              const key = `${hero}|${col}|${JSON.stringify(probsObj)}|${providedAction || ''}`
+              let chosen = ''
+              if (chosenCache.has(key)) {
+                chosen = chosenCache.get(key) || ''
+              } else {
+                chosen = providedAction || sampleChoice(probsObj) || ''
+                chosenCache.set(key, chosen)
               }
-              const chosen = providedAction || sampleChoice(probsObj) || ''
+
               cache[hero][col] = { type: 'prob', segments, chosen }
                continue
              }
@@ -169,11 +189,14 @@ export default defineComponent({
                  continue
                }
                const segments = buildSegments(map)
-               if ((!segments || segments.length === 0)) {
-                 const fbAction = provided || ''
-                 if (fbAction) segments.push({ width: 100, color: colorFor(fbAction), action: fbAction })
+               const key2 = `${hero}|${col}|${JSON.stringify(map)}|${provided || ''}`
+               let chosen2 = ''
+               if (chosenCache.has(key2)) {
+                 chosen2 = chosenCache.get(key2) || ''
+               } else {
+                 chosen2 = provided || sampleChoice(map) || ''
+                 chosenCache.set(key2, chosen2)
                }
-               const chosen2 = provided || sampleChoice(map) || ''
                cache[hero][col] = { type: 'prob', segments, chosen: chosen2 }
                continue
              }
@@ -229,8 +252,9 @@ export default defineComponent({
    position: relative;
  }
 
- /* make the bar flexible and allow it to take the full height of the prob-cell (removed -8px) */
- .prob-bar { flex: 1 1 auto; width: 100%; display:flex; overflow:hidden; border-radius:6px; position:relative; z-index:1; height: var(--cell-height); margin: 4px 0; }
- .prob-seg { height:100%; flex: 0 0 auto; min-width: 1px; box-sizing:border-box }
- .prob-overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#000; font-weight:700; pointer-events:none; z-index:2; background: transparent }
+/* liseret en bas de la cellule */
+.prob-strip { position: absolute; bottom: 0; left: 0; right: 0; height: 6px; display:flex; z-index:1; }
+.prob-seg { height:100%; flex: 0 0 auto; min-width: 1px; box-sizing:border-box }
+/* overlay texte centré au-dessus du liseret */
+.prob-overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; z-index:2; pointer-events:none; font-weight:700 }
 </style>
