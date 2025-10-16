@@ -29,13 +29,11 @@ export async function fetchCurrentAPI(): Promise<any> {
   return { raw: text };
 }
 
-export async function decideAPI(params: { players?: string | number; depth?: string | number; position?: string; hand?: string; showRange?: boolean }): Promise<any> {
+export async function decideAPI(params: { players?: string | number; depth?: string | number; hand?: string }): Promise<any> {
   const q = new URLSearchParams();
   if (params.players !== undefined) q.set('players', String(params.players));
   if (params.depth !== undefined) q.set('depth', String(params.depth));
-  if (params.position !== undefined) q.set('position', String(params.position));
   if (params.hand !== undefined) q.set('hand', String(params.hand));
-  if (params.showRange !== undefined) q.set('showRange', String(params.showRange));
   const res = await fetch(API_BASE + '/api/decide?' + q.toString());
   if (!res.ok) throw new Error((await res.json().catch(()=>null))?.error || res.statusText);
   return await res.json();
@@ -50,8 +48,8 @@ export async function uploadProfileAPI(name: string, jsonPayload: any): Promise<
 }
 
 export async function activateProfileAPI(name: string): Promise<any> {
-  const url = API_BASE + '/api/activate?name=' + encodeURIComponent(name);
-  const res = await fetch(url, { method: 'POST' });
+  const url = API_BASE + '/api/profiles/select';
+  const res = await fetch(url, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name }) });
   const body = await res.json().catch(()=>null);
   if (!res.ok) throw new Error(body?.error || res.statusText);
   return body;

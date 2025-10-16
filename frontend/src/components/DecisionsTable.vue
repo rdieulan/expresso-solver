@@ -23,8 +23,11 @@
                   </div>
 
                   <div v-else-if="cellFor(hero, col).type === 'prob'" class="prob-cell rounded position-relative">
-                    <div class="prob-bar d-flex rounded">
+                    <div class="prob-bar d-flex rounded" v-if="cellFor(hero,col).segments && cellFor(hero,col).segments.length > 0">
                       <div v-for="(s, idx) in cellFor(hero,col).segments" :key="idx" class="prob-seg" :style="{ width: s.width + '%', background: s.color }"></div>
+                    </div>
+                    <div v-else class="det-cell" :style="{ background: colorFor(cellFor(hero,col).chosen) }">
+                      <span class="text-dark fw-bold">{{ cellFor(hero,col).chosen }}</span>
                     </div>
                     <div class="prob-overlay">{{ cellFor(hero,col).chosen }}</div>
                   </div>
@@ -102,24 +105,59 @@ export default defineComponent({
 
     const cellCache = computed(() => {
       const cache: Record<string, Record<string, any>> = {}
+      const probKeys = ['raise','shove','call','fold']
       for (const hero of props.heroPositions) {
         cache[hero] = {}
         const row = (props.decisionsMatrix && props.decisionsMatrix[hero]) || {}
         for (const col of props.decisionColumns) {
           const cell = row[col]
           if (!cell) { cache[hero][col] = { type: 'na' }; continue }
+
+          // Case 1: simple string like 'CALL'
+          if (typeof cell === 'string') {
+            cache[hero][col] = { type: 'det', action: String(cell).toUpperCase() }
+            continue
+          }
+
+          // Case: object containing probs directly (e.g. { raise:60, shove:40 }) OR object with .probs
+          if (typeof cell === 'object') {
+            // try explicit .probs or .probabilities
+            const probsObj = (cell.probs || cell.probabilities)
+            if (probsObj && typeof probsObj === 'object' && Object.keys(probsObj).length > 0) {
+              const segments = buildSegments(probsObj)
+              // If backend provides an explicit action in addition to probs, prefer showing it as chosen
+              const providedAction = (cell.action ? String(cell.action).toUpperCase() : undefined)
+              const chosen = providedAction || sampleChoice(probsObj) || ''
+              cache[hero][col] = { type: 'prob', segments, chosen }
+              continue
+            }
+
+            // try treat the object itself as probs if it contains known keys
+            const keys = Object.keys(cell || {})
+            const hasProbKeys = keys.some(k => probKeys.includes(k.toLowerCase()))
+            if (hasProbKeys) {
+              // build a normalized probs map
+              const map: Record<string, number> = {}
+              for (const k of keys) {
+                const v = Number((cell as any)[k])
+                if (!isNaN(v)) map[k.toLowerCase()] = v
+              }
+              const segments = buildSegments(map)
+              const providedAction = (cell.action ? String(cell.action).toUpperCase() : undefined)
+              const chosen = providedAction || sampleChoice(map) || ''
+              cache[hero][col] = { type: 'prob', segments, chosen }
+              continue
+            }
+          }
+
+          // Case: object with explicit action (no probs)
           if (cell.action) {
             const action = String(cell.action).toUpperCase()
             cache[hero][col] = { type: 'det', action }
             continue
           }
-          if (cell.probs && typeof cell.probs === 'object') {
-            const probs = cell.probs
-            const segments = buildSegments(probs)
-            const chosen = sampleChoice(probs) || ''
-            cache[hero][col] = { type: 'prob', segments, chosen }
-            continue
-          }
+
+          // fallback: no usable info
           cache[hero][col] = { type: 'na' }
         }
       }
@@ -136,11 +174,25 @@ export default defineComponent({
 </script>
 
 <style scoped>
-.decisions-table td, .decisions-table th { vertical-align: middle; }
-.na-cell { font-size:10px; padding:6px 8px; text-align:center; background:#1f1f1f; color:#fff; border-radius:6px; display:inline-block; min-width:64px }
-.det-cell { padding:8px 10px; border-radius:6px; min-width:64px; display:inline-block }
-.prob-cell { min-width:80px; height:28px; display:inline-block }
-.prob-bar { height:100%; overflow:hidden }
-.prob-seg { height:100% }
-.prob-overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#000; font-weight:700 }
+.decisions-table { table-layout: fixed; width: 100%; }
+.decisions-table td, .decisions-table th { padding: 4px; }
+
+/* Inner block fills the TD (compensate padding on TD) */
+.na-cell, .det-cell, .prob-cell {
+  display: block;
+  width: calc(100% - 8px); /* account for td padding */
+  box-sizing: border-box;
+  min-height: 36px;
+  padding: 6px;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.na-cell { font-size: 12px; text-align:center; background:#1f1f1f; color:#fff; }
+.det-cell { color: inherit; }
+.det-cell > span { display: block; width:100%; text-align:center }
+.prob-cell { position: relative; }
+.prob-bar { height:100%; width:100%; display:flex; overflow:hidden; border-radius:6px }
+.prob-seg { height:100%; flex: none; min-width: 0 }
+.prob-overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#000; font-weight:700; pointer-events:none }
 </style>

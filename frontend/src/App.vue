@@ -73,7 +73,7 @@ import { defineComponent, ref, onMounted, computed, watch } from 'vue'
 import RangeGrid from './components/RangeGrid.vue'
 import DecisionsTable from './components/DecisionsTable.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
-import { fetchProfilesAPI, fetchCurrentAPI, decideAPI, uploadProfileAPI } from './api'
+import { fetchProfilesAPI, fetchCurrentAPI, decideAPI, uploadProfileAPI, activateProfileAPI } from './api'
 
 export default defineComponent({
   components: { RangeGrid, DecisionsTable, SettingsPanel },
@@ -198,39 +198,37 @@ export default defineComponent({
     }
 
     async function buildDecisionsTable() {
-      // build matrix by querying decideAPI for each hero position
+      // Build matrix from decisions.value (single API response that contains decisions for all hero positions)
       const playersCount = Number(players.value)
-      const heroPositions = allowedPositionsForPlayers(playersCount)
+      const heroPositionsList = allowedPositionsForPlayers(playersCount)
       const colsSet = new Set<string>()
       const matrix: Record<string, Record<string, any>> = {}
 
-      for (const hero of heroPositions) {
-        try {
-          const data = await decideAPI({ players: playersCount, depth: depth.value, position: hero, hand: hand.value, showRange: false })
-          const row: Record<string, any> = {}
-          const decs = data && data.decisions ? data.decisions : []
-          for (const d of decs) {
-            const sc = String(d.scenario || '');
-            const key = sc + (d.villain ? String(d.villain) : '')
-            // normalize: store either { action: 'RAISE' } or { probs: {raise:.., call:..} }
-            if (d && typeof d === 'object') {
-              if (d.probs || d.probabilities) {
-                row[key] = { probs: d.probs || d.probabilities }
-              } else if (d.action) {
-                row[key] = { action: String(d.action).toUpperCase() }
-              } else {
-                row[key] = { raw: d }
-              }
-            } else {
-              row[key] = { action: String(d).toUpperCase() }
-            }
-             colsSet.add(key)
-           }
-           matrix[hero] = row
-        } catch (e:any) {
-          // if API fails, mark row empty
-          matrix[hero] = {}
+      // initialize empty rows
+      for (const h of heroPositionsList) matrix[h] = {}
+
+      const allDecisions = decisions.value || []
+      for (const d of allDecisions) {
+        const hero = d.heroPos || (heroPositionsList.length > 0 ? heroPositionsList[0] : 'BTN')
+        const sc = String(d.scenario || '')
+        const key = sc + (d.villain ? String(d.villain) : '')
+
+        // normalize and store
+        if (d && typeof d === 'object') {
+          const hasProbs = !!(d.probs || d.probabilities)
+          const probsVal = d.probs || d.probabilities
+          const actVal = d.action ? String(d.action).toUpperCase() : undefined
+          if (hasProbs) {
+            matrix[hero][key] = { probs: probsVal, action: actVal }
+          } else if (d.action) {
+            matrix[hero][key] = { action: String(d.action).toUpperCase() }
+          } else {
+            matrix[hero][key] = { raw: d }
+          }
+        } else {
+          matrix[hero][key] = { action: String(d).toUpperCase() }
         }
+        colsSet.add(key)
       }
 
       // ensure deterministic column order
@@ -253,15 +251,16 @@ export default defineComponent({
     async function decide() {
       metaLine.value = 'En attente...'
       try {
-        const heroPos = (heroPositions.value && heroPositions.value.length > 0) ? heroPositions.value[0] : 'BTN'
-        // showRange removed; always request default behavior
-        const data = await decideAPI({ players: players.value, depth: depth.value, position: heroPos, hand: hand.value })
+        // Request once for all hero positions. Backend will return decisions for each heroPos.
+        const data = await decideAPI({ players: players.value, depth: depth.value, hand: hand.value })
         lastJson.value = data
+        // backend returns data.decisions as an array with heroPos on each item
         decisions.value = data.decisions || []
+        // keep backward-compatible currentPositionNode using returned `range` (first hero)
         currentPositionNode.value = data.range || {}
         outputText.value = JSON.stringify(data, null, 2)
         metaLine.value = 'OK — réponses reçues'
-        // rebuild table for all hero positions
+        // build the table locally from the single response
         await buildDecisionsTable()
       } catch (e:any) { metaLine.value = 'Erreur'; outputText.value = String(e.message || e) }
     }
@@ -298,7 +297,7 @@ export default defineComponent({
     }
 
     // initial load
-    onMounted(async ()=>{ await fetchProfiles(); await buildDecisionsTable() })
+    onMounted(async ()=>{ await fetchProfiles(); await decide() })
 
     // export helper (used by UI)
     function exportJson() {
@@ -333,8 +332,21 @@ export default defineComponent({
       return key
     }
 
-    // watch settings and trigger decide automatically on change
-    watch([activeProfile, players, depth, hand], async () => {
+    // watcher pour activeProfile : active le profil côté backend puis recalcule
+    watch(activeProfile, async (newV, oldV) => {
+      if (!newV) return
+      try {
+        await activateProfileAPI(String(newV))
+        // refresh la liste/état des profils
+        await fetchProfiles()
+      } catch (e:any) {
+        console.warn('activateProfileAPI failed', e)
+      }
+      try { await decide() } catch (e) { /* ignore */ }
+    })
+
+    // watch autres settings (players/depth/hand)
+    watch([players, depth, hand], async () => {
       try { await decide() } catch (e) { /* ignore */ }
     })
 

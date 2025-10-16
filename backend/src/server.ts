@@ -4,7 +4,7 @@ import path from "path";
 import { promises as fs } from "fs";
 import { RangeRepository } from "./ranges/RangeRepository";
 import { DecisionEngine } from "./DecisionEngine";
-import { parsePlayersCount, parsePosition, normalizeHandLabel, allVillainPositions, Scenario, Position } from "./domain";
+import { parsePlayersCount, normalizeHandLabel, allVillainPositions, Scenario, Position } from "./domain";
 
 async function main() {
   const app = express();
@@ -44,8 +44,7 @@ async function main() {
         const name = f.replace(/\.json$/i, '');
         try {
           const raw = await fs.readFile(path.join(profilesDir, f), 'utf8');
-          const json = JSON.parse(raw);
-          profiles[name] = json;
+          profiles[name] = JSON.parse(raw);
         } catch (e) {
           console.error(`Erreur lecture profile ${f}:`, (e as Error).message);
         }
@@ -92,8 +91,7 @@ async function main() {
       if (!name || typeof name !== 'string') return res.status(400).json({ error: 'Missing profile name' });
       if (!profiles[name]) return res.status(404).json({ error: 'Profile not found' });
       // validate and activate
-      const newRepo = RangeRepository.fromObject(profiles[name]);
-      repo = newRepo;
+      repo = RangeRepository.fromObject(profiles[name]);
       engine = new DecisionEngine(repo);
       currentProfile = name;
       res.json({ ok: true, active: currentProfile });
@@ -102,37 +100,55 @@ async function main() {
     }
   });
 
-  // API: GET /api/decide?players=3&depth=10&position=BTN&hand=AKs&showRange=true
+  // API: GET /api/decide?players=3&depth=10&hand=AKs
   app.get("/api/decide", async (req, res) => {
     try {
       const q = req.query as Record<string, string | undefined>;
       const players = parsePlayersCount(Number(q.players || ""));
-      const heroPos = parsePosition(String(q.position || ""), players);
       const depth = Math.max(5, Math.min(15, Math.round(Number(q.depth || "0"))));
       const handInput = String(q.hand || "");
       const normalized = normalizeHandLabel(handInput);
-      const showRange = q.showRange === "true" || q.showRange === "1" || q.showRange === "true";
+
+      // Backend no longer accepts `position` or `showRange` query params.
+      // Compute allowed hero positions directly from players count.
+      const allowed = players === 2 ? [Position.SB, Position.BB] : [Position.BTN, Position.SB, Position.BB];
+      const targetHeroPositions: Position[] = allowed as Position[];
 
       const decisions: Array<any> = [];
+      const ranges: Record<string, any> = {};
 
-      const dFirst = engine.decide({ players, depth, heroPos, scenario: Scenario.FirstIn, hand: handInput });
-      decisions.push({ scenario: Scenario.FirstIn, villain: null, hand: dFirst.handLabel, action: dFirst.action, probs: dFirst.probs || null });
+      for (const heroPos of targetHeroPositions) {
+        // FirstIn
+        const dFirst = engine.decide({ players, depth, heroPos, scenario: Scenario.FirstIn, hand: handInput });
+        decisions.push({ heroPos, scenario: Scenario.FirstIn, villain: null, hand: dFirst.handLabel, action: dFirst.action, probs: dFirst.probs || null });
 
-      const villains = allVillainPositions(players, heroPos);
-      for (const v of villains) {
-        const dOpen = engine.decide({ players, depth, heroPos, scenario: Scenario.VsOpen, villainPos: v, hand: handInput });
-        decisions.push({ scenario: Scenario.VsOpen, villain: v, hand: dOpen.handLabel, action: dOpen.action, probs: dOpen.probs || null });
-        const dShove = engine.decide({ players, depth, heroPos, scenario: Scenario.VsShove, villainPos: v, hand: handInput });
-        decisions.push({ scenario: Scenario.VsShove, villain: v, hand: dShove.handLabel, action: dShove.action, probs: dShove.probs || null });
+        const villains = allVillainPositions(players, heroPos);
+        for (const v of villains) {
+          const dOpen = engine.decide({ players, depth, heroPos, scenario: Scenario.VsOpen, villainPos: v, hand: handInput });
+          decisions.push({ heroPos, scenario: Scenario.VsOpen, villain: v, hand: dOpen.handLabel, action: dOpen.action, probs: dOpen.probs || null });
+          const dShove = engine.decide({ players, depth, heroPos, scenario: Scenario.VsShove, villainPos: v, hand: handInput });
+          decisions.push({ heroPos, scenario: Scenario.VsShove, villain: v, hand: dShove.handLabel, action: dShove.action, probs: dShove.probs || null });
+        }
+
+        // include range for the first hero position only (to keep payload small and backward compatible)
+        if (!ranges[String(heroPos)]) {
+          try {
+            ranges[String(heroPos)] = repo.getPositionNode({ players, depth, heroPos });
+          } catch (e) {
+            ranges[String(heroPos)] = null;
+          }
+        }
       }
 
       const out: any = {
-        meta: { players, depth, heroPos, handInput, normalized, profile: currentProfile },
+        meta: { players, depth, handInput, normalized, profile: currentProfile, heroPositions: targetHeroPositions.map(p => String(p)) },
         decisions,
+        ranges
       };
 
-      if (showRange) {
-        out.range = repo.getPositionNode({ players, depth, heroPos });
+      // For backward compatibility, set `range` to the first hero position node if available
+      if (targetHeroPositions.length > 0) {
+        out.range = ranges[String(targetHeroPositions[0])] || null;
       }
 
       res.json(out);
@@ -147,9 +163,8 @@ async function main() {
       const body = req.body;
       const name = (req.query && req.query.name) || (body && (body as any).name) || undefined;
       // instantiate a new repo (validation happens inside)
-      const newRepo = RangeRepository.fromObject(body);
+      repo = RangeRepository.fromObject(body);
       // replace runtime repo/engine
-      repo = newRepo;
       engine = new DecisionEngine(repo);
 
       // persist if name provided
