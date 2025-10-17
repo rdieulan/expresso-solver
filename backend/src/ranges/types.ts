@@ -5,12 +5,12 @@ export type HandLabel = string; // ex: "AKS", "A2O", "AA"
 // A DecisionValue can be a simple action string, or a map of action->weight (numbers)
 export type DecisionValue = DecisionAction | Record<DecisionAction, number> | string;
 
-export type FirstInNode = Record<HandLabel, DecisionValue>;
+export type OpenNode = Record<HandLabel, DecisionValue>;
 
 export type VsNode = Record<string, Record<HandLabel, DecisionValue>>; // villainPos -> (hand->action)
 
 export type PositionNode = {
-  FirstIn?: FirstInNode;
+  Open?: OpenNode;
   VsOpen?: VsNode;
   VsShove?: VsNode;
 };

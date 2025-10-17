@@ -4,7 +4,7 @@ import { RangeRepository } from "../ranges/RangeRepository";
 import { PlayersCount, Position, Scenario } from "../domain";
 
 async function run() {
-  const fp = path.resolve(__dirname, "..", "..", "data", "preflop.ranges.json");
+  const fp = path.resolve(__dirname, "..", "..", "data", "ranges.json");
   const repo = await RangeRepository.fromFile(fp);
 
   // Cas 1: SB firstIn AKs (players=2, depth=10)

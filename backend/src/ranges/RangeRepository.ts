@@ -3,7 +3,6 @@ import path from "path";
 import {
   RangesFile,
   DecisionAction,
-  RangesFile as _RangesFile,
   PositionNode,
   DecisionValue,
 } from "./types";
@@ -60,17 +59,28 @@ export class RangeRepository {
     const hNode = dNode?.[heroPos];
     if (!hNode) return undefined;
 
-    if (scenario === Scenario.FirstIn) {
-      return (hNode as any)?.[Scenario.FirstIn]?.[handLabel];
+    if (scenario === Scenario.Open) {
+      return (hNode as any)?.[Scenario.Open]?.[handLabel];
     }
 
     const sNode = (hNode as any)?.[scenario];
-    if (!sNode || !villainPos) return undefined;
+    if (!sNode) return undefined;
 
-    return sNode?.[villainPos]?.[handLabel];
+    // If sNode is structured by villain positions (VsOpen, VsShove, VsSqueeze, ...)
+    if (villainPos && (sNode as any)[villainPos]) {
+      return (sNode as any)[villainPos]?.[handLabel];
+    }
+
+    // If sNode directly maps handLabel -> value (no villain dimension), return that
+    if ((sNode as any)[handLabel] !== undefined) {
+      return (sNode as any)[handLabel];
+    }
+
+    // As a final attempt, if sNode has keys that look like villain positions but none matched, return undefined
+    return undefined;
   }
 
-  // Expose the raw position node (FirstIn / VsOpen / VsShove) for the closest depth key
+  // Expose the raw position node (Open / VsOpen / VsShove) for the closest depth key
   getPositionNode(params: { players: PlayersCount; depth: number; heroPos: Position }): PositionNode | undefined {
     const { players, depth, heroPos } = params;
     const pNode = (this.data as any)?.[String(players)];
@@ -130,21 +140,20 @@ function validateRangesFile(json: unknown, srcPath: string): void {
         if (typeof posNode !== "object" || posNode === null) {
           throw new Error(`Position node ${posKey} invalide sous depth ${depthKey}`);
         }
-        // posNode may contain FirstIn, VsOpen, VsShove
-        const allowedScenarioKeys = ["FirstIn", "VsOpen", "VsShove"];
+        // posNode may contain Open, VsOpen, VsShove or other scenario keys (e.g. VsSqueeze).
+        // Instead of hardcoding allowed scenario keys, validate structure per-scenario type:
+        // - If the key is 'Open' (or matches /^Open$/i) then it must be an object hand->action
+        // - Otherwise assume it's a multi-villain mapping: villainPos -> (hand->action)
         let hasAny = false;
         for (const scKey of Object.keys(posNode as Record<string, unknown>)) {
-          if (!allowedScenarioKeys.includes(scKey)) {
-            throw new Error(`Clé de scenario inconnue ${scKey} sous ${posKey}/${depthKey}`);
-          }
           hasAny = true;
           const scNode = (posNode as Record<string, unknown>)[scKey];
-          if (scKey === "FirstIn") {
+          if (scKey === "Open") {
             if (typeof scNode !== "object" || scNode === null) {
-              throw new Error(`FirstIn doit être un objet hand->action sous ${posKey}/${depthKey}`);
+              throw new Error(`Open doit être un objet hand->action sous ${posKey}/${depthKey}`);
             }
           } else {
-            // VsOpen / VsShove : villainPos -> (hand->action)
+            // For non-Open scenarios we expect a villainPos -> (hand->action) mapping
             if (typeof scNode !== "object" || scNode === null) {
               throw new Error(`${scKey} doit être un objet villainPos->(hand->action) sous ${posKey}/${depthKey}`);
             }
@@ -157,7 +166,7 @@ function validateRangesFile(json: unknown, srcPath: string): void {
           }
         }
         if (!hasAny) {
-          throw new Error(`Position ${posKey} sous depth ${depthKey} n'a aucun scenario (FirstIn|VsOpen|VsShove)`);
+          throw new Error(`Position ${posKey} sous depth ${depthKey} n'a aucun scenario (ex: Open ou Vs...)`);
         }
       }
     }

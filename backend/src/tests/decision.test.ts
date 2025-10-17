@@ -5,7 +5,7 @@ import { DecisionEngine } from "../DecisionEngine";
 import { PlayersCount, Position, Scenario } from "../domain";
 
 async function run() {
-  const fp = path.resolve(__dirname, "..", "..", "data", "preflop.ranges.json");
+  const fp = path.resolve(__dirname, "..", "..", "data", "ranges.json");
   const repo = await RangeRepository.fromFile(fp);
   const engine = new DecisionEngine(repo);
 

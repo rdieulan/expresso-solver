@@ -14,27 +14,12 @@
     },
     "10": {
       "SB": {
-        "Open": {
-          "AA": "shove",
-          "AKS": { "fold": 60, "shove": 40 }
-        },
-        "VsOpen": {
-          "BB": {
-            "AKS": { "raise": 30, "shove": 50, "call": 20 },
-            "A5S": "call"
-          }
-        },
-        "VsShove": {
-          "BB": {
-            "QQ": { "fold": 50, "call": 50 }
-          }
-        }
+        "Open": {},
+        "VsOpen": { "BB": {} },
+        "VsShove": { "BB": {} }
       },
       "BB": {
-        "Open": {
-          "AA": "raise",
-          "AKS": "raise"
-        },
+        "Open": {},
         "VsOpen": { "SB": {} },
         "VsShove": { "SB": {} }
       }
@@ -76,47 +61,22 @@
     },
     "10": {
       "BTN": {
-        "Open": {
-          "AKS": "raise"
-        },
-        "VsShove": {
-          "SB": {
-            "QQ": "call"
-          },
-          "BB": {
-            "QQ": "call"
-          }
-        },
+        "Open": {},
+        "VsShove": { "SB": {}, "BB": {} },
         "VsSqueeze": { "BB": {} },
         "VsBothShove": {}
       },
       "SB": {
-        "Open": {
-          "AKS": "raise"
-        },
-        "VsOpen": {
-          "BTN": {},
-          "BB": {}
-        },
-        "VsShove": {
-          "BTN": {},
-          "BB": {}
-        },
+        "Open": {},
+        "VsOpen": { "BTN": {} },
+        "VsShove": { "BTN": {}, "BB": {} },
         "VsSqueeze": { "BB": {} },
         "VsBothShove": {}
       },
       "BB": {
-        "Open": {
-          "AKS": "raise"
-        },
-        "VsOpen": {
-          "BTN": {},
-          "SB": {}
-        },
-        "VsShove": {
-          "BTN": {},
-          "SB": {}
-        },
+        "Open": {},
+        "VsOpen": { "BTN": {}, "SB": {} },
+        "VsShove": { "BTN": {}, "SB": {} },
         "VsBothShove": {}
       }
     },

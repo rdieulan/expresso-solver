@@ -9,7 +9,12 @@
             <thead>
               <tr>
                 <th style="width:80px">Position</th>
-                <th v-for="col in decisionColumns" :key="col" class="text-center">{{ colLabel(col) }}</th>
+                <th v-for="col in decisionColumns" :key="col" class="text-center">
+                  <div class="col-header">
+                    <div class="col-top">{{ headerScenario(col) }}</div>
+                    <div v-if="headerVillain(col)" class="col-bottom">{{ headerVillain(col) }}</div>
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -148,7 +153,8 @@ export default defineComponent({
               }
               // detect degenerate distribution: exactly one non-zero weight -> treat as deterministic
               const nonZeroKeys = Object.keys(normMap).filter(k => normMap[k] > 0)
-              const providedAction = (cell.action ? String(cell.action).toUpperCase() : undefined)
+
+              // Do NOT force providedAction when sampling; sampling should reflect probs
               if (nonZeroKeys.length === 1) {
                 cache[hero][col] = { type: 'det', action: nonZeroKeys[0].toUpperCase() }
                 continue
@@ -157,13 +163,13 @@ export default defineComponent({
               // build segments as before
               const segments = buildSegments(probsObj)
 
-              // stable chosen: use chosenCache keyed by hero|col|probsJSON|providedAction
-              const key = `${hero}|${col}|${JSON.stringify(probsObj)}|${providedAction || ''}`
+              // stable chosen: use chosenCache keyed by hero|col|probsJSON (ignore provided action)
+              const key = `${hero}|${col}|${JSON.stringify(probsObj)}`
               let chosen = ''
               if (chosenCache.has(key)) {
                 chosen = chosenCache.get(key) || ''
               } else {
-                chosen = providedAction || sampleChoice(probsObj) || ''
+                chosen = sampleChoice(probsObj) || ''
                 chosenCache.set(key, chosen)
               }
 
@@ -183,18 +189,17 @@ export default defineComponent({
                }
                // detect degenerate distribution
                const nz = Object.keys(map).filter(k => map[k] > 0)
-               const provided = (cell.action ? String(cell.action).toUpperCase() : undefined)
                if (nz.length === 1) {
                  cache[hero][col] = { type: 'det', action: nz[0].toUpperCase() }
                  continue
                }
                const segments = buildSegments(map)
-               const key2 = `${hero}|${col}|${JSON.stringify(map)}|${provided || ''}`
+               const key2 = `${hero}|${col}|${JSON.stringify(map)}`
                let chosen2 = ''
                if (chosenCache.has(key2)) {
                  chosen2 = chosenCache.get(key2) || ''
                } else {
-                 chosen2 = provided || sampleChoice(map) || ''
+                 chosen2 = sampleChoice(map) || ''
                  chosenCache.set(key2, chosen2)
                }
                cache[hero][col] = { type: 'prob', segments, chosen: chosen2 }
@@ -220,7 +225,19 @@ export default defineComponent({
       return (cellCache.value[hero] && cellCache.value[hero][col]) || { type: 'na' }
     }
 
-    return { colorFor, textClassFor, cellFor }
+    // Header helpers: ensure a line-break between scenario and villain
+    function headerLabelParts(col: string) {
+      const raw = props.colLabel ? props.colLabel(col) : String(col)
+      // Split on first whitespace occurrence between scenario and villain
+      const idx = raw.indexOf(' ')
+      if (idx === -1) return { scen: raw, vill: '' }
+      return { scen: raw.slice(0, idx), vill: raw.slice(idx + 1) }
+    }
+
+    function headerScenario(col: string) { return headerLabelParts(col).scen }
+    function headerVillain(col: string) { return headerLabelParts(col).vill }
+
+    return { colorFor, textClassFor, cellFor, headerScenario, headerVillain }
   }
 })
 </script>
@@ -228,6 +245,14 @@ export default defineComponent({
 <style scoped>
 .decisions-table { table-layout: fixed; width: 100%; --cell-height: 44px; }
 .decisions-table td, .decisions-table th { padding: 4px; }
+
+/* Ensure table headers are vertically centered */
+.decisions-table thead th { vertical-align: middle; }
+
+/* Two-line header styling */
+.col-header { display:flex; flex-direction:column; align-items:center; justify-content:center; white-space:normal; height:100%; min-height: var(--cell-height); box-sizing: border-box; }
+.col-top { font-weight:700; font-size:0.85rem }
+.col-bottom { font-size:0.75rem; color:var(--bs-muted, #6c757d) }
 
 /* Inner block fills the TD (compensate padding on TD) */
 .na-cell, .det-cell, .prob-cell {

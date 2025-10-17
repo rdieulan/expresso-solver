@@ -8,7 +8,8 @@
     "test:unit": "ts-node src/tests/normalize.test.ts && ts-node src/tests/range.test.ts && ts-node src/tests/decision.test.ts",
     "test:unit:normalize": "ts-node src/tests/normalize.test.ts",
     "test:unit:range": "ts-node src/tests/range.test.ts",
-    "test:unit:decision": "ts-node src/tests/decision.test.ts"
+    "test:unit:decision": "ts-node src/tests/decision.test.ts",
+    "validate:profiles": "node scripts/validateProfiles.js"
   },
   "dependencies": {
     "express": "^4.18.2",

@@ -63,8 +63,8 @@ async function main() {
   const availableNames = Object.keys(profiles);
   let currentProfile = availableNames.includes('gto') ? 'gto' : (availableNames[0] || 'default');
 
-  // Initialize repo/engine based on currentProfile or fallback to data/preflop.ranges.json
-  const rangesPath = path.resolve(__dirname, "..", "data", "preflop.ranges.json");
+  // Initialize repo/engine based on currentProfile or fallback to data/ranges.json
+  const rangesPath = path.resolve(__dirname, "..", "data", "ranges.json");
   let repo = await (async () => {
     if (profiles[currentProfile]) {
       return RangeRepository.fromObject(profiles[currentProfile]);
@@ -118,16 +118,52 @@ async function main() {
       const ranges: Record<string, any> = {};
 
       for (const heroPos of targetHeroPositions) {
-        // FirstIn
-        const dFirst = engine.decide({ players, depth, heroPos, scenario: Scenario.FirstIn, hand: handInput });
-        decisions.push({ heroPos, scenario: Scenario.FirstIn, villain: null, hand: dFirst.handLabel, action: dFirst.action, probs: dFirst.probs || null });
+        // Try to use the position node from the repository to enumerate available scenarios
+        const positionNode = repo.getPositionNode({ players, depth, heroPos });
+        if (positionNode && typeof positionNode === 'object') {
+          const scenarioKeys = Object.keys(positionNode as Record<string, unknown>);
+          for (const scKey of scenarioKeys) {
+            if (!scKey) continue;
+            // Open is a special case: no villain dimension
+            if (scKey === 'Open') {
+              const dFirst = engine.decide({ players, depth, heroPos, scenario: (scKey as any), hand: handInput });
+              decisions.push({ heroPos, scenario: scKey, villain: null, hand: dFirst.handLabel, action: dFirst.action, probs: dFirst.probs || null });
+              continue;
+            }
 
-        const villains = allVillainPositions(players, heroPos);
-        for (const v of villains) {
-          const dOpen = engine.decide({ players, depth, heroPos, scenario: Scenario.VsOpen, villainPos: v, hand: handInput });
-          decisions.push({ heroPos, scenario: Scenario.VsOpen, villain: v, hand: dOpen.handLabel, action: dOpen.action, probs: dOpen.probs || null });
-          const dShove = engine.decide({ players, depth, heroPos, scenario: Scenario.VsShove, villainPos: v, hand: handInput });
-          decisions.push({ heroPos, scenario: Scenario.VsShove, villain: v, hand: dShove.handLabel, action: dShove.action, probs: dShove.probs || null });
+            const scNode = (positionNode as any)[scKey];
+            if (scNode && typeof scNode === 'object') {
+              const scNodeKeys = Object.keys(scNode);
+              // Determine whether this scenario uses villain positions by intersecting with allowed villains
+              const villainsAllowed = allVillainPositions(players, heroPos).map(p => String(p));
+              const intersection = scNodeKeys.filter(k => villainsAllowed.includes(k));
+
+              if (intersection.length > 0) {
+                // per-villain entries
+                for (const v of intersection) {
+                  const d = engine.decide({ players, depth, heroPos, scenario: (scKey as any), villainPos: (v as any), hand: handInput });
+                  decisions.push({ heroPos, scenario: scKey, villain: v, hand: d.handLabel, action: d.action, probs: d.probs || null });
+                }
+              } else {
+                // no villain dimension: treat as direct mapping hand->value
+                const d = engine.decide({ players, depth, heroPos, scenario: (scKey as any), hand: handInput });
+                decisions.push({ heroPos, scenario: scKey, villain: null, hand: d.handLabel, action: d.action, probs: d.probs || null });
+              }
+            }
+          }
+        } else {
+          // Fallback to previous behavior when no position node available (backwards compatibility)
+          // Open
+          const dFirst = engine.decide({ players, depth, heroPos, scenario: Scenario.Open, hand: handInput });
+          decisions.push({ heroPos, scenario: Scenario.Open, villain: null, hand: dFirst.handLabel, action: dFirst.action, probs: dFirst.probs || null });
+
+          const villains = allVillainPositions(players, heroPos);
+          for (const v of villains) {
+            const dOpen = engine.decide({ players, depth, heroPos, scenario: Scenario.VsOpen, villainPos: v, hand: handInput });
+            decisions.push({ heroPos, scenario: Scenario.VsOpen, villain: v, hand: dOpen.handLabel, action: dOpen.action, probs: dOpen.probs || null });
+            const dShove = engine.decide({ players, depth, heroPos, scenario: Scenario.VsShove, villainPos: v, hand: handInput });
+            decisions.push({ heroPos, scenario: Scenario.VsShove, villain: v, hand: dShove.handLabel, action: dShove.action, probs: dShove.probs || null });
+          }
         }
 
         // include range for the first hero position only (to keep payload small and backward compatible)

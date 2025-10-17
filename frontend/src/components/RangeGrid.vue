@@ -17,10 +17,10 @@
             >
               <div v-if="cellFragments[cellLabel(rowIndex - 1, colIndex - 1)]" class="cell-bar">
                 <div
-                  v-for="(seg, idx) in cellFragments[cellLabel(rowIndex - 1, colIndex - 1)]"
+                  v-for="(segment, idx) in cellFragments[cellLabel(rowIndex - 1, colIndex - 1)]"
                   :key="idx"
                   class="cell-seg"
-                  :style="{ width: seg.width + '%', background: seg.color }"
+                  :style="{ width: segment.width + '%', background: segment.color }"
                 ></div>
               </div>
               <div class="cell-text">{{ shortLabel(cellLabel(rowIndex - 1, colIndex - 1)) }}</div>
@@ -65,10 +65,10 @@ export default defineComponent({
     // Retrieve the fragment stored in the provided rangeNode for a given hand label
     function getFragmentForHand(hand: string) {
       if (!props.rangeNode) return null
-      const sc = props.scenario || 'FirstIn'
+      const sc = props.scenario || 'Open'
       try {
-        if (sc === 'FirstIn') {
-          return props.rangeNode.FirstIn ? props.rangeNode.FirstIn[hand] || null : null
+        if (sc === 'Open') {
+          return props.rangeNode.Open ? props.rangeNode.Open[hand] || null : null
         }
         if (sc === 'VsOpen' || sc === 'VsOpen' /* tolerate both */) {
           const node = props.rangeNode.VsOpen || props.rangeNode.VsOpen || props.rangeNode.VsOpen
@@ -144,8 +144,8 @@ export default defineComponent({
         for (let c = 0; c < 13; c++) {
           const label = cellLabel(r, c)
           const frag = getFragmentForHand(label)
-          const segs = segmentsFromFragment(frag)
-          out[label] = segs
+          const segmentsList = segmentsFromFragment(frag)
+          out[label] = segmentsList
         }
       }
       return out
@@ -165,12 +165,12 @@ export default defineComponent({
       const pct = Math.max(1, Math.min(100, Number(props.cellPct) || 100))
       const fragment: any = {}
       fragment[action] = pct
-      emit('cell-clicked', label, props.scenario || 'FirstIn', props.villain || null, fragment)
+      emit('cell-clicked', label, props.scenario || 'Open', props.villain || null, fragment)
     }
 
     function onCellContext(label: string) {
       // context menu clears the cell (emit null fragment)
-      emit('cell-clicked', label, props.scenario || 'FirstIn', props.villain || null, null)
+      emit('cell-clicked', label, props.scenario || 'Open', props.villain || null, null)
     }
 
     return { ranks, cellLabel, shortLabel, cellFragments, onCellClick, onCellContext, cellTooltip }

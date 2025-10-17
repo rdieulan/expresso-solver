@@ -33,28 +33,13 @@ export class DecisionEngine {
 
         if (!raw) {
             // fallback deterministic
-            const fallbackAction = this.fallback(input.scenario);
-            return { action: fallbackAction, handLabel };
+            return { action: "fold", handLabel };
         }
 
         const { probs, action } = this.resolveDecisionValue(raw);
         const out: DecideOutput = { action, handLabel };
         if (probs) out.probs = probs;
         return out;
-    }
-
-    private fallback(s: Scenario): DecisionAction {
-        // Repli conservateur
-        switch (s) {
-            case Scenario.FirstIn:
-                return "fold";
-            case Scenario.VsOpen:
-                return "fold";
-            case Scenario.VsShove:
-                return "call";
-            default:
-                return "fold";
-        }
     }
 
     // Resolve DecisionValue into a sampled action and the distribution

@@ -14,7 +14,7 @@
             <h6 class="card-title">Éditeur de ranges</h6>
             <div class="mb-2 d-flex gap-2 align-items-center">
               <select v-model="scenario" class="form-select form-select-sm" style="width:160px">
-                <option value="FirstIn">FirstIn</option>
+                <option value="Open">Open</option>
                 <option value="VsOpen">VsOpen</option>
                 <option value="VsShove">VsShove</option>
               </select>
@@ -89,7 +89,7 @@ export default defineComponent({
     const metaLine = ref('Aucune requête effectuée.')
     const outputText = ref('')
 
-    const scenario = ref('FirstIn')
+    const scenario = ref('Open')
     const villain = ref(null as string | null)
     const villainOptions = computed(() => {
       const hero = (heroPositions.value && heroPositions.value.length > 0) ? heroPositions.value[0] : 'BTN'
@@ -101,6 +101,9 @@ export default defineComponent({
 
     const decisionsMatrix = ref<Record<string, Record<string, any>>>({})
     const decisionColumns = ref<string[]>([])
+
+    // heroPositions devient un ref modifiable : on le remplit à partir de la réponse API (meta.heroPositions) si possible
+    const heroPositions = ref<string[]>(allowedPositionsForPlayers(players.value))
 
     async function fetchProfiles() {
       try {
@@ -172,20 +175,18 @@ export default defineComponent({
       return n === 2 ? ['SB', 'BB'] : ['BTN', 'SB', 'BB']
     }
 
-    const heroPositions = computed(() => allowedPositionsForPlayers(players.value))
-
     function scenOrder(k: string) {
       // Nouvelle logique de tri demandée :
-      // 0_ => FirstIn (open)
+      // 0_ => Open
       // 1_ => Vs<anything> BTN
       // 2_ => Vs<anything> SB
       // 3_ => Vs<anything> BB
       // 9_ => autres
       if (!k) return '9_' + k
-      if (k.startsWith('FirstIn')) return '0_' + k
+      if (k.startsWith('Open')) return '0_' + k
       if (k.startsWith('Vs')) {
         const rest = k.substring(2)
-        // détecte le villain dans la clé (BTN, SB, BB) — recherche robuste
+        // détecte le villain dans la clé (BTN, SB, BB)
         const hasBTN = /BTN$|BTN/.test(rest)
         const hasSB = /SB$|SB/.test(rest)
         const hasBB = /BB$|BB/.test(rest)
@@ -199,8 +200,7 @@ export default defineComponent({
 
     async function buildDecisionsTable() {
       // Build matrix from decisions.value (single API response that contains decisions for all hero positions)
-      const playersCount = Number(players.value)
-      const heroPositionsList = allowedPositionsForPlayers(playersCount)
+      const heroPositionsList = heroPositions.value && heroPositions.value.length > 0 ? heroPositions.value : allowedPositionsForPlayers(players.value)
       const colsSet = new Set<string>()
       const matrix: Record<string, Record<string, any>> = {}
 
@@ -211,7 +211,7 @@ export default defineComponent({
       for (const d of allDecisions) {
         const hero = d.heroPos || (heroPositionsList.length > 0 ? heroPositionsList[0] : 'BTN')
         const sc = String(d.scenario || '')
-        const key = sc + (d.villain ? String(d.villain) : '')
+        const key = sc + (d.villain ? (' ' + String(d.villain)) : '')
 
         // normalize and store
         if (d && typeof d === 'object') {
@@ -241,8 +241,8 @@ export default defineComponent({
         return a.localeCompare(b)
       })
 
-      // ensure FirstIn present at least
-      if (!cols.includes('FirstIn')) cols.unshift('FirstIn')
+      // ensure Open present at least
+      if (!cols.includes('Open')) cols.unshift('Open')
 
       decisionsMatrix.value = matrix
       decisionColumns.value = cols
@@ -256,6 +256,17 @@ export default defineComponent({
         lastJson.value = data
         // backend returns data.decisions as an array with heroPos on each item
         decisions.value = data.decisions || []
+        // use heroPositions from API meta if provided, otherwise derive from decisions
+        const fromMeta = data && data.meta && Array.isArray(data.meta.heroPositions) ? data.meta.heroPositions.map((p:any)=>String(p)) : null
+        if (fromMeta && fromMeta.length > 0) {
+          heroPositions.value = fromMeta
+        } else {
+          const hp = new Set<string>()
+          for (const d of decisions.value) if (d && d.heroPos) hp.add(String(d.heroPos))
+          if (hp.size > 0) heroPositions.value = Array.from(hp)
+          else heroPositions.value = allowedPositionsForPlayers(players.value)
+        }
+
         // keep backward-compatible currentPositionNode using returned `range` (first hero)
         currentPositionNode.value = data.range || {}
         outputText.value = JSON.stringify(data, null, 2)
@@ -278,9 +289,9 @@ export default defineComponent({
     function onCellClicked(handLabel:string, scenarioParam:string, villainParam:string|null, fragment:any) {
       if (!currentPositionNode.value) currentPositionNode.value = {}
       const sc = scenarioParam || scenario.value
-      if (sc === 'FirstIn') {
-        if (!currentPositionNode.value.FirstIn) currentPositionNode.value.FirstIn = {}
-        currentPositionNode.value.FirstIn[handLabel] = fragment
+      if (sc === 'Open') {
+        if (!currentPositionNode.value.Open) currentPositionNode.value.Open = {}
+        currentPositionNode.value.Open[handLabel] = fragment
       } else if (sc === 'VsOpen') {
         // villainParam doit être non-null pour ce scénario
         if (!villainParam) return
@@ -320,20 +331,23 @@ export default defineComponent({
 
     function colLabel(key: string) {
       if (!key) return ''
-      if (key.startsWith('FirstIn')) return 'OPEN'
+      if (key.startsWith('Open')) return 'OPEN'
       if (key.startsWith('VsOpen')) {
         const rest = key.substring('VsOpen'.length)
-        return rest ? `VsOpen ${rest}` : 'VsOpen'
+        // our keys may have a leading space between scenario and villain
+        const trimmed = rest.trim()
+        return trimmed ? `VsOpen ${trimmed}` : 'VsOpen'
       }
       if (key.startsWith('VsShove')) {
         const rest = key.substring('VsShove'.length)
-        return rest ? `VsShove ${rest}` : 'VsShove'
+        const trimmed = rest.trim()
+        return trimmed ? `VsShove ${trimmed}` : 'VsShove'
       }
       return key
     }
 
     // watcher pour activeProfile : active le profil côté backend puis recalcule
-    watch(activeProfile, async (newV, oldV) => {
+    watch(activeProfile, async (newV) => {
       if (!newV) return
       try {
         await activateProfileAPI(String(newV))

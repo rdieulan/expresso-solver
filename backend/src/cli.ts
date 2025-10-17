@@ -69,7 +69,7 @@ async function main() {
             }
             repo = await loadProfile(profilesDir, profileName);
         } else {
-            const rangesPath = path.resolve(__dirname, "..", "data", "preflop.ranges.json");
+            const rangesPath = path.resolve(__dirname, "..", "data", "ranges.json");
             repo = await RangeRepository.fromFile(rangesPath);
         }
     } catch (e) {

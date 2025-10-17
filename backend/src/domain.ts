@@ -9,7 +9,7 @@ export enum Position {
 }
 
 export enum Scenario {
-    FirstIn = "FirstIn",
+    Open = "Open",
     VsOpen = "VsOpen",
     VsShove = "VsShove",
 }

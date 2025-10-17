@@ -1,11 +1,22 @@
 {
   "2": {
+    "5": {
+      "SB": {
+        "Open": {},
+        "VsOpen": { "BB": {} },
+        "VsShove": { "BB": {} }
+      },
+      "BB": {
+        "Open": {},
+        "VsOpen": { "SB": {} },
+        "VsShove": { "SB": {} }
+      }
+    },
     "10": {
       "SB": {
-        "FirstIn": {
+        "Open": {
           "AA": "shove",
-          "AKS": "raise",
-          "A2O": "fold"
+          "AKS": "raise"
         },
         "VsOpen": {
           "BB": {
@@ -16,13 +27,12 @@
         "VsShove": {
           "BB": {
             "QQ": "call",
-            "AQS": "call",
-            "A2O": "fold"
+            "AQS": "call"
           }
         }
       },
       "BB": {
-        "FirstIn": {
+        "Open": {
           "AA": "raise",
           "AKS": "raise"
         },
@@ -37,22 +47,46 @@
           }
         }
       }
+    },
+    "15": {
+      "SB": {
+        "Open": {},
+        "VsOpen": { "BB": {} },
+        "VsShove": { "BB": {} }
+      },
+      "BB": {
+        "Open": {},
+        "VsOpen": { "SB": {} },
+        "VsShove": { "SB": {} }
+      }
     }
   },
   "3": {
+    "5": {
+      "BTN": {
+        "Open": {},
+        "VsShove": { "SB": {}, "BB": {} },
+        "VsSqueeze": { "BB": {} },
+        "VsBothShove": {}
+      },
+      "SB": {
+        "Open": {},
+        "VsOpen": { "BTN": {} },
+        "VsShove": { "BTN": {}, "BB": {} },
+        "VsSqueeze": { "BB": {} },
+        "VsBothShove": {}
+      },
+      "BB": {
+        "Open": {},
+        "VsOpen": { "BTN": {}, "SB": {} },
+        "VsShove": { "BTN": {}, "SB": {} },
+        "VsBothShove": {}
+      }
+    },
     "10": {
       "BTN": {
-        "FirstIn": {
-          "AKS": "raise",
-          "A2O": "fold"
-        },
-        "VsOpen": {
-          "SB": {
-            "AKS": "shove"
-          },
-          "BB": {
-            "AKS": "shove"
-          }
+        "Open": {
+          "AKS": "raise"
         },
         "VsShove": {
           "SB": {
@@ -61,19 +95,83 @@
           "BB": {
             "QQ": "call"
           }
+        },
+        "VsSqueeze": {
+          "BB": {}
+        },
+        "VsBothShove": {
         }
       },
       "SB": {
-        "FirstIn": {
+        "Open": {
           "AKS": "raise"
-        }
+        },
+        "VsOpen": {
+          "BTN": {},
+          "BB": {}
+        },
+        "VsShove": {
+          "BTN": {},
+          "BB": {}
+        },
+        "VsSqueeze": {
+          "BB": {}
+        },
+        "VsBothShove": {}
       },
       "BB": {
-        "FirstIn": {
+        "Open": {
           "AKS": "raise"
-        }
+        },
+        "VsOpen": {
+          "BTN": {},
+          "SB": {}
+        },
+        "VsShove": {
+          "BTN": {},
+          "SB": {}
+        },
+        "VsBothShove": {}
+      }
+    },
+    "15": {
+      "BTN": {
+        "Open": {},
+        "VsShove": {
+          "SB": {},
+          "BB": {}
+        },
+        "VsSqueeze": {
+          "BB": {}
+        },
+        "VsBothShove": {}
+      },
+      "SB": {
+        "Open": {},
+        "VsOpen": {
+          "BTN": {}
+        },
+        "VsShove": {
+          "BTN": {},
+          "BB": {}
+        },
+        "VsSqueeze": {
+          "BB": {}
+        },
+        "VsBothShove": {}
+      },
+      "BB": {
+        "Open": {},
+        "VsOpen": {
+          "BTN": {},
+          "SB": {}
+        },
+        "VsShove": {
+          "BTN": {},
+          "SB": {}
+        },
+        "VsBothShove": {}
       }
     }
   }
 }
-
